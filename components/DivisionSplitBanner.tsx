@@ -20,17 +20,20 @@ import {
   Layers
 } from 'lucide-react';
 import { DivisionType } from '../types';
+import { AI_STUDIO_APP_URL } from '../data/servicesData';
 
 interface DivisionSplitBannerProps {
   activeDivision: DivisionType;
   onSelectDivision: (division: DivisionType) => void;
   onNavigateSection: (sectionId: string) => void;
+  onNavigateSubPage?: () => void;
 }
 
 export const DivisionSplitBanner: React.FC<DivisionSplitBannerProps> = ({
   activeDivision,
   onSelectDivision,
-  onNavigateSection
+  onNavigateSection,
+  onNavigateSubPage
 }) => {
   return (
     <section className="relative z-10 py-10 px-4 md:px-6 max-w-7xl mx-auto">
@@ -204,26 +207,45 @@ export const DivisionSplitBanner: React.FC<DivisionSplitBannerProps> = ({
 
           {/* Action Links */}
           <div className="pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigateSection('github-hub');
-              }}
-              className="px-4 py-2 rounded-xl bg-black hover:bg-slate-900 text-[#00ff66] border border-[#00ff66]/50 text-xs font-mono font-bold flex items-center gap-2 transition-colors shadow-[0_0_15px_rgba(0,255,102,0.2)]"
-            >
-              <GitBranch className="w-3.5 h-3.5" />
-              <span>GitHub Repositories & SDKs</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onNavigateSubPage) {
+                    onNavigateSubPage();
+                  } else {
+                    onNavigateSection('services');
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] hover:from-[#2563eb] hover:to-[#0ea5e9] text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                title="View nested Disciplines & Offerings sub-page"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
+                <span>Builds & Software Lab (Sub-Page) →</span>
+              </button>
 
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigateSection('github-hub');
-              }}
-              className="text-xs font-mono font-bold text-[#00ff66] hover:text-white flex items-center gap-1 transition-colors"
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateSection('github-hub');
+                }}
+                className="px-3.5 py-2 rounded-xl bg-black hover:bg-slate-900 text-[#00ff66] border border-[#00ff66]/50 text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shadow-[0_0_15px_rgba(0,255,102,0.2)] cursor-pointer"
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                <span>GitHub SDKs</span>
+              </button>
+            </div>
+
+            <a
+              href={AI_STUDIO_APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-mono font-bold text-[#00ff66] hover:text-white flex items-center gap-1 transition-colors underline underline-offset-4"
+              title="Launch live AI Studio App"
             >
-              <span>API Sandbox Console →</span>
-            </button>
+              <span>AI Studio App (a6911d27) ↗</span>
+            </a>
           </div>
         </div>
 

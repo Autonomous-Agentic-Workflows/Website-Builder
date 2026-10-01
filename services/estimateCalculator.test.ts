@@ -95,4 +95,69 @@ describe('estimateCalculator - calculateBOM', () => {
     expect(steepPostmasterResult.materialsCost).toBeGreaterThan(flatResult.materialsCost);
     expect(steepPostmasterResult.laborCost).toBeGreaterThan(flatResult.laborCost);
   });
+
+  it('calculates a valid projected timeline', () => {
+    const segments: YardSegment[] = [
+      { id: 'seg-1', name: 'Back Yard', lengthFeet: 150, singleGates: 2, doubleGates: 0, hasTearOut: true },
+    ];
+
+    const gates: GateConfig = {
+      singleGatesCount: 2,
+      singleGateWidthFt: 4,
+      doubleGatesCount: 0,
+      doubleGateWidthFt: 0,
+      automatedSolarOperator: false,
+      keypadAccess: false,
+      antiSagKits: false,
+    };
+
+    const result = calculateBOM({
+      segments,
+      tearOutFeet: 150,
+      postSpacingFeet: 7.5,
+      railCount: 3,
+      heightFeet: 6,
+      postType: 'postmaster_steel',
+      material: 'cedar_privacy',
+      hasRotBoard: true,
+      hasCapAndTrim: true,
+      hasStaining: true,
+      terrain: 'flat',
+      gates,
+    });
+
+    expect(result.timeline).toBeDefined();
+    expect(result.timeline.totalWorkDays).toBeGreaterThan(3); // Demo + Posts + Build + Stain should be > 3 days for 150ft
+    expect(result.timeline.phases.length).toBeGreaterThan(0);
+    expect(new Date(result.timeline.estimatedStartDate).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(result.timeline.estimatedCompletionDate).getTime()).toBeGreaterThan(new Date(result.timeline.estimatedStartDate).getTime());
+  });
+
+  it('respects dynamic queue lead time days', () => {
+    const segments: YardSegment[] = [{ id: 's1', name: 'Line', lengthFeet: 50, singleGates: 0, doubleGates: 0, hasTearOut: false }];
+    const gates: GateConfig = { singleGatesCount: 0, singleGateWidthFt: 0, doubleGatesCount: 0, doubleGateWidthFt: 0, automatedSolarOperator: false, keypadAccess: false, antiSagKits: false };
+    
+    const leadTime = 30;
+    const result = calculateBOM({
+      segments,
+      tearOutFeet: 0,
+      postSpacingFeet: 8,
+      railCount: 3,
+      heightFeet: 6,
+      postType: 'cedar_4x4',
+      material: 'cedar_privacy',
+      hasRotBoard: false,
+      hasCapAndTrim: false,
+      hasStaining: false,
+      terrain: 'flat',
+      gates,
+      queueLeadTimeDays: leadTime
+    });
+
+    const start = new Date(result.timeline.estimatedStartDate);
+    const today = new Date();
+    const diffDays = Math.round((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    
+    expect(diffDays).toBe(leadTime);
+  });
 });

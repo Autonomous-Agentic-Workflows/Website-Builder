@@ -47,129 +47,8 @@ import { ToastProvider, useToast } from './components/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import { saveQuoteToFirestore } from './services/firebase';
 import { ServiceItem, DivisionType } from './types';
-
-const SERVICES_DATA: ServiceItem[] = [
-  { 
-    id: '1', 
-    name: 'Western Red Cedar Privacy', 
-    genre: 'Residential Contracting', 
-    day: 'CONTRACTOR', 
-    division: 'contractor',
-    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1200&auto=format&fit=crop',
-    description: 'Precision-crafted Pacific Northwest Western Red Cedar privacy fencing. Engineered with steel-reinforced post systems, rot-board base protection, and weather-resistant structural framing built to withstand Idaho wind and snow loads.',
-    features: [
-      'Grade #1 Clear Western Red Cedar Pickets',
-      'Heavy-duty PostMaster steel hidden posts',
-      'Pressure-treated 2x4 framing with ring-shank nails',
-      '10-Year Craftsmanship Warranty'
-    ],
-    pricingEstimate: 'From $34 / linear foot installed',
-    metrics: [
-      { label: 'Wind Rating', value: '85+ MPH' },
-      { label: 'Lifespan', value: '25+ Yrs' }
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Smart Automated Driveway Gates', 
-    genre: 'Contractor + Smart Automation', 
-    day: 'HYBRID', 
-    division: 'hybrid',
-    image: 'https://images.unsplash.com/photo-1584463699026-646700c25a07?q=80&w=1200&auto=format&fit=crop',
-    description: 'Custom fabricated architectural driveway gates powered by solar or hardwired DC motors, optical obstruction detection, and smartphone-controlled perimeter telemetry for seamless estate entry.',
-    features: [
-      'Heavy-wall steel and aluminum custom fabrication',
-      'LiftMaster & Ghost Controls commercial grade actuators',
-      'Solar array charging with battery backup',
-      'Smartphone app, keypads, and RFID vehicle tags'
-    ],
-    pricingEstimate: 'Custom systems from $3,450',
-    metrics: [
-      { label: 'Cycle Rating', value: '100k+ Cycles' },
-      { label: 'Power Options', value: '12V Solar / 110V' }
-    ]
-  },
-  { 
-    id: '3', 
-    name: 'Architectural Ornamental Iron', 
-    genre: 'Residential Contracting', 
-    day: 'CONTRACTOR', 
-    division: 'contractor',
-    image: 'https://images.unsplash.com/photo-1595846519845-68e298c2edd8?q=80&w=1200&auto=format&fit=crop',
-    description: 'Timeless welded steel and aluminum estate fencing featuring multi-stage electro-coat powder protection. Delivers maximum curb appeal, perimeter security, and swimming pool safety compliance.',
-    features: [
-      'Multi-stage electrostatic powder coating',
-      'Self-closing magnetic MagnaLatch child-safe hinges',
-      'Custom spear, flat-top, and puppy-picket options',
-      'Zero-corrosion manufacturer guarantee'
-    ],
-    pricingEstimate: 'From $42 / linear foot installed',
-    metrics: [
-      { label: 'Coating', value: 'Industrial E-Coat' },
-      { label: 'Pool Code', value: '100% Compliant' }
-    ]
-  },
-  { 
-    id: '4', 
-    name: 'Maintenance-Free Vinyl & Composite', 
-    genre: 'Residential Contracting', 
-    day: 'CONTRACTOR', 
-    division: 'contractor',
-    image: 'https://images.unsplash.com/photo-1588880331179-bc9b93a8cb5e?q=80&w=1200&auto=format&fit=crop',
-    description: 'High-impact virgin vinyl and composite perimeters engineered with internal aluminum reinforcement. Impervious to moisture, rot, fading, and peeling without requiring staining.',
-    features: [
-      'UV-stabilized virgin vinyl formulation',
-      'Aluminum bottom-rail anti-sag channel',
-      'Full privacy, lattice accent, and semi-privacy styles',
-      'Lifetime non-fade manufacturer warranty'
-    ],
-    pricingEstimate: 'From $38 / linear foot installed',
-    metrics: [
-      { label: 'Maintenance', value: 'Zero Paint/Stain' },
-      { label: 'UV Resistance', value: 'Class 1 Rating' }
-    ]
-  },
-  { 
-    id: '5', 
-    name: 'FenceQuote OS & Estimating Platform', 
-    genre: 'Software Development Lab', 
-    day: 'DEVELOPER', 
-    division: 'developer',
-    image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1200&auto=format&fit=crop',
-    description: 'Next-generation cloud estimating engine and GIS property parcel mapper built specifically for fence contractors. Automatically calculates linear footage, bill-of-materials, concrete yardage, and client proposals in seconds.',
-    features: [
-      'Satellite aerial GIS parcel boundary tracing',
-      'Live dynamic supplier material cost calculations',
-      'Instant interactive quote generation with e-signatures',
-      'REST APIs & QuickBooks / CRM webhook sync'
-    ],
-    pricingEstimate: 'SaaS licensing from $199/mo',
-    metrics: [
-      { label: 'Estimate Speed', value: '< 2 Minutes' },
-      { label: 'BOM Accuracy', value: '99.8%' }
-    ]
-  },
-  { 
-    id: '6', 
-    name: 'SmartGate IoT Access & Controller API', 
-    genre: 'Software Development Lab', 
-    day: 'DEVELOPER', 
-    division: 'developer',
-    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1200&auto=format&fit=crop',
-    description: 'Microcontroller hardware firmware, LoRaWAN / cellular telemetry units, and secure cloud API for automated gate diagnostics, visitor guest passes, and automated license plate entry.',
-    features: [
-      'End-to-end encrypted MQTT & WebSockets telemetry',
-      'Automatic license plate reader (ALPR) camera integration',
-      'HomeKit, Google Home & custom Alexa integration skill',
-      'Live gate status, battery voltage & fault alerts'
-    ],
-    pricingEstimate: 'Hardware + Cloud API Integration',
-    metrics: [
-      { label: 'Latency', value: '< 180ms' },
-      { label: 'Encryption', value: 'AES-256' }
-    ]
-  },
-];
+import { SERVICES_DATA, AI_STUDIO_APP_URL, AI_STUDIO_APP_ID } from './data/servicesData';
+import BuildsSoftwareLabSubPage from './components/BuildsSoftwareLabSubPage';
 
 const AppContent: React.FC = () => {
   const { showQuoteSuccessToast, showToast } = useToast();
@@ -181,6 +60,49 @@ const AppContent: React.FC = () => {
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null);
   const [activeDivision, setActiveDivision] = useState<DivisionType>('all');
   
+  // View mode: 'main' (landing page) | 'builds-software-lab' (nested sub page)
+  const [currentView, setCurrentView] = useState<'main' | 'builds-software-lab'>('main');
+
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      const search = new URLSearchParams(window.location.search);
+      if (
+        hash === '#builds-software-lab' ||
+        hash === '#software-lab' ||
+        hash === '#disciplines' ||
+        hash === '#offerings' ||
+        search.get('page') === 'builds-software-lab'
+      ) {
+        setCurrentView('builds-software-lab');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (hash === '' || hash === '#home') {
+        setCurrentView('main');
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const navigateToSubPage = () => {
+    setCurrentView('builds-software-lab');
+    window.location.hash = 'builds-software-lab';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToMain = (targetSectionId?: string) => {
+    setCurrentView('main');
+    if (targetSectionId) {
+      window.location.hash = targetSectionId;
+      setTimeout(() => scrollToSection(targetSectionId), 100);
+    } else {
+      window.location.hash = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   const [purchasingIndex, setPurchasingIndex] = useState<number | null>(null);
   const [purchasedIndex, setPurchasedIndex] = useState<number | null>(null);
 
@@ -252,6 +174,25 @@ const AppContent: React.FC = () => {
 
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
+    if (currentView !== 'main') {
+      setCurrentView('main');
+      window.location.hash = id;
+      setTimeout(() => {
+        const element = document.getElementById(id);
+        if (element) {
+          const headerOffset = 90;
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.scrollY - headerOffset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+      return;
+    }
+
     const element = document.getElementById(id);
     if (element) {
       const headerOffset = 90;
@@ -303,6 +244,20 @@ const AppContent: React.FC = () => {
 
   const estimatedCost = getEstimatedCost();
   const isMatrixMode = activeDivision === 'developer';
+
+  // Sub-page view render
+  if (currentView === 'builds-software-lab') {
+    return (
+      <div className="relative min-h-screen text-slate-100 selection:bg-[#38bdf8] selection:text-slate-950 cursor-auto md:cursor-none overflow-x-hidden">
+        <CustomCursor />
+        <BuildsSoftwareLabSubPage 
+          onBackToHome={() => navigateToMain()} 
+          onNavigateEstimate={() => navigateToMain('estimate')} 
+        />
+        <AIChat />
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen text-slate-100 selection:bg-[#38bdf8] selection:text-slate-950 cursor-auto md:cursor-none overflow-x-hidden">
@@ -375,7 +330,7 @@ const AppContent: React.FC = () => {
           <div className="flex gap-4 xl:gap-6 text-xs font-bold tracking-widest uppercase text-slate-300">
             {[
               { label: 'Divisions', id: 'division-portal' },
-              { label: 'Services', id: 'services' },
+              { label: 'Disciplines & Lab', id: 'builds-software-lab', isSubpage: true },
               { label: 'Gallery', id: 'project-gallery-section' },
               { label: 'Facebook (Fences)', id: 'facebook-hub' },
               { label: 'GitHub (Software)', id: 'github-hub' },
@@ -388,9 +343,17 @@ const AppContent: React.FC = () => {
             ].map((item) => (
               <button 
                 key={item.id} 
-                onClick={() => scrollToSection(item.id)}
+                onClick={() => {
+                  if (item.isSubpage) {
+                    navigateToSubPage();
+                  } else {
+                    scrollToSection(item.id);
+                  }
+                }}
                 className={`transition-colors cursor-pointer bg-transparent border-none py-1 whitespace-nowrap ${
-                  item.id === 'facebook-hub' 
+                  item.id === 'builds-software-lab'
+                    ? 'text-[#38bdf8] font-bold hover:text-white bg-[#0284c7]/20 border border-[#38bdf8]/40 px-2.5 py-0.5 rounded-lg shadow-[0_0_10px_rgba(56,189,248,0.25)] flex items-center gap-1'
+                    : item.id === 'facebook-hub' 
                     ? 'text-[#1877F2] hover:text-white' 
                     : item.id === 'github-hub' 
                       ? 'text-[#00ff66] hover:text-white' 
@@ -411,6 +374,16 @@ const AppContent: React.FC = () => {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
+          <a
+            href={AI_STUDIO_APP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-[#00ff66]/40 hover:border-[#00ff66] bg-black/80 hover:bg-black text-[#00ff66] hover:text-white px-3.5 py-2 rounded-lg text-xs font-mono font-bold tracking-wider uppercase transition-all duration-300 shadow-[0_0_10px_rgba(0,255,102,0.2)] flex items-center gap-1.5"
+            title="Launch live AI Studio App (a6911d27)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#00ff66]" />
+            <span>AI Studio App ↗</span>
+          </a>
           <button 
             onClick={() => scrollToSection('estimate')}
             className="border border-slate-700 hover:border-[#38bdf8] bg-slate-900/60 hover:bg-[#1e3a8a] text-white px-5 py-2 rounded-lg text-xs font-bold tracking-wider uppercase transition-all duration-300 shadow-md cursor-pointer"
@@ -474,10 +447,40 @@ const AppContent: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex flex-col items-center gap-2 max-h-[45vh] overflow-y-auto w-full">
+            {/* Featured Sub-Page Button on Mobile Menu */}
+            <div className="w-full flex flex-col gap-2 my-1">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigateToSubPage();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] border border-[#38bdf8]/50 text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-between shadow-lg shadow-blue-950/60"
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#38bdf8]" />
+                  <span>Disciplines & Software Lab (Sub-Page)</span>
+                </div>
+                <ArrowUpRight className="w-4 h-4 text-[#38bdf8]" />
+              </button>
+
+              <a
+                href={AI_STUDIO_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 px-4 rounded-xl bg-black border border-[#00ff66]/50 text-[#00ff66] font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-between shadow-[0_0_12px_rgba(0,255,102,0.2)]"
+              >
+                <div className="flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#00ff66]" />
+                  <span>Launch AI Studio App ↗</span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">a6911d27</span>
+              </a>
+            </div>
+
+            <div className="flex flex-col items-center gap-2 max-h-[40vh] overflow-y-auto w-full">
               {[
                 { label: 'Divisions', id: 'division-portal' },
-                { label: 'Services', id: 'services' },
+                { label: 'Disciplines & Lab (Sub-Page)', id: 'builds-software-lab', isSubpage: true },
                 { label: 'Gallery Showcase', id: 'project-gallery-section' },
                 { label: 'Facebook (Fences)', id: 'facebook-hub' },
                 { label: 'GitHub (Software)', id: 'github-hub' },
@@ -490,9 +493,18 @@ const AppContent: React.FC = () => {
               ].map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => scrollToSection(item.id)}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (item.isSubpage) {
+                      navigateToSubPage();
+                    } else {
+                      scrollToSection(item.id);
+                    }
+                  }}
                   className={`text-lg font-heading font-bold transition-colors uppercase bg-transparent border-none py-1 ${
-                    item.id === 'facebook-hub'
+                    item.id === 'builds-software-lab'
+                      ? 'text-[#38bdf8]'
+                      : item.id === 'facebook-hub'
                       ? 'text-[#1877F2]'
                       : item.id === 'github-hub'
                         ? 'text-[#00ff66]'
@@ -592,24 +604,39 @@ const AppContent: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.8 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-4 px-4"
+            className="mt-8 flex flex-wrap items-center justify-center gap-3 md:gap-4 px-4"
           >
             <button
               onClick={() => scrollToSection('estimate')}
-              className="px-8 py-4 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0f2942] hover:from-[#2563eb] hover:to-[#1e3a8a] text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 border border-slate-600 shadow-xl shadow-blue-950/50 flex items-center gap-2.5 cursor-pointer"
+              className="px-6 md:px-8 py-4 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0f2942] hover:from-[#2563eb] hover:to-[#1e3a8a] text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 border border-slate-600 shadow-xl shadow-blue-950/50 flex items-center gap-2.5 cursor-pointer"
               data-hover="true"
             >
               <Calculator className="w-4 h-4 text-[#38bdf8]" />
               <span>Instant Bid Calculator</span>
             </button>
+
             <button
-              onClick={() => scrollToSection('services')}
-              className="px-8 py-4 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 border border-slate-700/80 flex items-center gap-2 cursor-pointer"
+              onClick={navigateToSubPage}
+              className="px-6 md:px-8 py-4 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 border border-[#38bdf8]/50 hover:border-[#38bdf8] flex items-center gap-2 cursor-pointer shadow-lg shadow-blue-950/40"
               data-hover="true"
+              title="Open nested Disciplines & Offerings: BUILDS & SOFTWARE LAB sub-page"
             >
-              <span>Explore Builds & Code</span>
-              <ArrowUpRight className="w-4 h-4 text-slate-400" />
+              <Sparkles className="w-4 h-4 text-[#38bdf8]" />
+              <span>Disciplines & Offerings (Sub-Page)</span>
+              <ArrowUpRight className="w-4 h-4 text-[#38bdf8]" />
             </button>
+
+            <a
+              href={AI_STUDIO_APP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-4 rounded-xl bg-black/90 hover:bg-black text-[#00ff66] hover:text-white font-mono font-bold text-xs uppercase tracking-wider transition-all duration-300 border border-[#00ff66]/50 hover:border-[#00ff66] flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-950/40"
+              data-hover="true"
+              title="Takes you directly to Google AI Studio App"
+            >
+              <Terminal className="w-4 h-4 text-[#00ff66]" />
+              <span>AI Studio App ↗</span>
+            </a>
           </motion.div>
         </motion.div>
 
@@ -720,16 +747,18 @@ const AppContent: React.FC = () => {
           activeDivision={activeDivision} 
           onSelectDivision={setActiveDivision} 
           onNavigateSection={scrollToSection} 
+          onNavigateSubPage={navigateToSubPage}
         />
       </div>
 
       {/* SERVICES / BUILDS SECTION */}
       <section id="services" className="relative z-10 py-20 md:py-28">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 md:mb-16 px-4 gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 px-4 gap-6">
             <div>
-              <div className="text-xs font-mono text-[#38bdf8] tracking-widest uppercase mb-2">
-                Disciplines & Offerings
+              <div className="text-xs font-mono text-[#38bdf8] tracking-widest uppercase mb-2 flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5" />
+                <span>Disciplines & Offerings • Dedicated Sub-Page</span>
               </div>
               <h2 className="text-4xl md:text-7xl font-heading font-bold uppercase leading-[0.95] text-white">
                 BUILDS & <br/> 
@@ -739,8 +768,8 @@ const AppContent: React.FC = () => {
               </h2>
             </div>
 
-            {/* Category Filter Chips */}
-            <div className="flex flex-wrap gap-2">
+            {/* Category Filter Chips & Sub-Page Quick Launch */}
+            <div className="flex flex-wrap items-center gap-2.5">
               {[
                 { label: 'All Offerings', value: 'all' },
                 { label: 'Contractor (Fences & Gates)', value: 'contractor' },
@@ -761,6 +790,72 @@ const AppContent: React.FC = () => {
                   {tab.label}
                 </button>
               ))}
+
+              <button
+                onClick={navigateToSubPage}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] hover:from-[#2563eb] hover:to-[#0ea5e9] text-white text-xs font-mono font-bold uppercase tracking-wider border border-[#38bdf8]/40 shadow-lg flex items-center gap-1.5 cursor-pointer"
+                title="Open the full nested sub-page"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
+                <span>Sub-Page View →</span>
+              </button>
+            </div>
+          </div>
+
+          {/* DEDICATED SUB-PAGE & AI.STUDIO GATEWAY PORTAL CARD */}
+          <div className="mb-10 p-6 md:p-8 rounded-3xl bg-gradient-to-r from-[#0c223d]/90 via-[#071322]/95 to-black/95 border border-[#38bdf8]/40 shadow-2xl backdrop-blur-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="max-w-3xl">
+              <div className="flex flex-wrap items-center gap-2 mb-2.5">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#38bdf8]/15 border border-[#38bdf8]/40 text-[#38bdf8] text-[11px] font-mono font-bold uppercase tracking-wider">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Nested Sub-Page Architecture</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00ff66]/15 border border-[#00ff66]/40 text-[#00ff66] text-[11px] font-mono font-bold uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#00ff66] animate-ping" />
+                  <span>Google AI Studio App Live</span>
+                </span>
+              </div>
+              <h3 className="text-xl md:text-2xl font-heading font-black text-white uppercase tracking-tight">
+                Disciplines & Offerings: BUILDS & SOFTWARE LAB
+              </h3>
+              <p className="text-xs md:text-sm text-slate-300 mt-2 font-normal leading-relaxed">
+                Disciplines & Offerings BUILDS & SOFTWARE LAB is nested as a dedicated sub-page and connects directly to the production Google AI Studio Application. Review deep technical specifications, software repositories, API sandboxes, or launch the applet instantly.
+              </p>
+              
+              <div className="mt-3.5 flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/60 border border-slate-700/80 text-slate-300">
+                  <span className="text-[#38bdf8] font-bold">App URL:</span>
+                  <a 
+                    href={AI_STUDIO_APP_URL} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[#38bdf8] hover:text-white underline underline-offset-2 truncate max-w-[280px] sm:max-w-sm"
+                  >
+                    {AI_STUDIO_APP_URL}
+                  </a>
+                </div>
+                <span className="text-[10px] text-slate-400">ID: a6911d27-7fd4-4c47-af8f-bd02979f37c8</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full lg:w-auto">
+              <button
+                onClick={navigateToSubPage}
+                className="px-6 py-4 rounded-2xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] hover:from-[#2563eb] hover:to-[#0ea5e9] text-white font-mono font-bold text-xs uppercase tracking-wider shadow-xl shadow-blue-950/60 border border-[#38bdf8]/40 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer"
+              >
+                <span>Enter Nested Sub-Page</span>
+                <ArrowUpRight className="w-4 h-4 text-[#38bdf8]" />
+              </button>
+
+              <a
+                href={AI_STUDIO_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-4 rounded-2xl bg-black hover:bg-slate-900 border border-[#00ff66]/50 text-[#00ff66] hover:text-white font-mono font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(0,255,102,0.25)] flex items-center justify-center gap-2 transition-all hover:scale-[1.02] text-center"
+              >
+                <Terminal className="w-4 h-4 text-[#00ff66]" />
+                <span>Launch AI Studio App ↗</span>
+              </a>
             </div>
           </div>
 
@@ -772,6 +867,31 @@ const AppContent: React.FC = () => {
                 onClick={() => setSelectedService(service)} 
               />
             ))}
+          </div>
+
+          {/* Sub-Page Bottom Callout Bar */}
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-[#081524]/90 border border-slate-800 text-xs font-mono">
+            <div className="flex items-center gap-2.5 text-slate-300 text-center sm:text-left">
+              <Sparkles className="w-4 h-4 text-[#38bdf8] shrink-0" />
+              <span>Looking for complete technical specifications, IoT hardware schematics, and live cloud sandboxes?</span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                onClick={navigateToSubPage}
+                className="text-[#38bdf8] hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>Open BUILDS & SOFTWARE LAB Sub-Page →</span>
+              </button>
+              <span className="text-slate-600">|</span>
+              <a
+                href={AI_STUDIO_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#00ff66] hover:text-white font-bold flex items-center gap-1 transition-colors"
+              >
+                <span>AI Studio App ↗</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -1112,6 +1232,22 @@ const AppContent: React.FC = () => {
               <li>SmartGate IoT Firmware & Access Control APIs</li>
               <li className="pt-2 flex flex-col gap-1.5">
                 <button 
+                  onClick={navigateToSubPage} 
+                  className="text-[#38bdf8] hover:text-white transition-colors flex items-center gap-1 font-mono text-xs font-semibold cursor-pointer text-left"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>→ Disciplines & Offerings: BUILDS & SOFTWARE LAB (Sub-Page)</span>
+                </button>
+                <a 
+                  href={AI_STUDIO_APP_URL} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-[#00ff66] hover:text-white transition-colors flex items-center gap-1 font-mono text-xs font-semibold"
+                >
+                  <Terminal className="w-3.5 h-3.5 text-[#00ff66]" />
+                  <span>→ Google AI Studio App (a6911d27) ↗</span>
+                </a>
+                <button 
                   onClick={() => scrollToSection('testimonials-section')} 
                   className="text-emerald-400 hover:text-white transition-colors flex items-center gap-1 font-mono text-xs font-semibold"
                 >
@@ -1119,7 +1255,7 @@ const AppContent: React.FC = () => {
                 </button>
                 <button 
                   onClick={() => scrollToSection('faq-section')} 
-                  className="text-[#38bdf8] hover:text-white transition-colors flex items-center gap-1 font-mono text-xs font-semibold"
+                  className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-mono text-xs font-semibold"
                 >
                   <span>→ View Warranties, Maintenance & FAQ</span>
                 </button>

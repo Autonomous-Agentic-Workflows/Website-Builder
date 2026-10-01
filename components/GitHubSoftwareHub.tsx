@@ -33,6 +33,40 @@ import { GitRepository, GitCommit, GitRelease } from '../types';
 
 const REPOSITORIES: GitRepository[] = [
   {
+    id: 'repo-autonomous-agentic-workflows',
+    name: 'Autonomous-Agentic-Workflows',
+    fullName: 'Autonomous-Agentic-Workflows/central-actions',
+    description: 'Enterprise autonomous multi-agent orchestrator pipelines, Weakness-to-AI surgical countermeasure engines, Google Cloud Vertex AI integrations, and centralized AI Core frameworks.',
+    language: 'TypeScript / Python',
+    languageColor: '#00F2FE',
+    stars: 148,
+    forks: 42,
+    license: 'MIT',
+    defaultBranch: 'main',
+    updatedAt: 'Just now',
+    topics: ['autonomous-agents', 'multi-agent-orchestrator', 'vertex-ai', 'gcloud-run', 'centralized-ai-core', 'gemini-2.5', 'enterprise-workflows'],
+    cloneUrl: 'https://github.com/Autonomous-Agentic-Workflows',
+    releaseVersion: 'v1.4.0-enterprise',
+    openIssues: 0,
+    readmePreview: `# Autonomous Agentic Workflows (Centralized AI Core)
+Enterprise-grade multi-agent autonomous execution pipelines, Google Cloud Vertex AI orchestrators, and prompt architecture.
+
+### Repository Suite & Org Highlights
+- **GitHub Organization:** [https://github.com/Autonomous-Agentic-Workflows](https://github.com/Autonomous-Agentic-Workflows)
+- **Vector 1 (Technical & Prompt Architecture):** Real-time multi-agent prompt routing, Centralized AI Core schemas, and Firestore/GCloud event triggers.
+- **Vector 2 (Operational & GTM Playbooks):** 30-60-90 day deployment templates, KPI telemetry dashboards, and zero-downtime CI/CD workflows.
+- **Vector 3 (Productization & Value Packaging):** Modular micro-SaaS estimation tooling, automated CAD BOM takeoffs, and enterprise licensing.
+- **Vector 4 (Weakness-to-AI Countermeasures):** Latency minimization, automated dynamic bidding algorithms, and real-time CRM state syncing.
+
+\`\`\`bash
+# Clone the central workflows repository
+git clone https://github.com/Autonomous-Agentic-Workflows.git
+cd Autonomous-Agentic-Workflows
+npm install
+npm run deploy:vertex
+\`\`\``
+  },
+  {
     id: 'repo-fence-estimate-tool',
     name: 'fence-estimate-tool',
     fullName: '208fenceandgate/fence-estimate-tool',

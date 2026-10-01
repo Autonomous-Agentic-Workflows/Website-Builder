@@ -313,12 +313,59 @@ export async function generateFenceEstimatePdf({
   currentY = (doc as any).lastAutoTable.finalY + 14;
 
   // ==========================================
-  // 5. ITEMIZED CONTRACT INVESTMENT BREAKDOWN
+  // 5. PROJECT SCHEDULE & TIMELINE
   // ==========================================
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...primaryNavy);
-  doc.text('3. ITEMIZED CONTRACT INVESTMENT BREAKDOWN', margin, currentY);
+  doc.text('3. PROJECT SCHEDULE & TIMELINE ESTIMATE', margin, currentY);
+  currentY += 8;
+
+  const startDateStr = new Date(bom.timeline.estimatedStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const endDateStr = new Date(bom.timeline.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  const timelineRows = bom.timeline.phases.map(p => [
+    p.name,
+    p.description,
+    `${p.durationDays} Day${p.durationDays === 1 ? '' : 's'}`
+  ]);
+
+  autoTable(doc, {
+    startY: currentY,
+    margin: { left: margin, right: margin },
+    head: [['Phase Name', 'Scope of Phase Work', 'Duration']],
+    body: timelineRows,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [241, 245, 249],
+      textColor: primaryNavy,
+      fontSize: 8,
+      fontStyle: 'bold',
+      cellPadding: 3
+    },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 3,
+      textColor: slateText,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.5
+    },
+    columnStyles: {
+      0: { cellWidth: 100, fontStyle: 'bold' },
+      1: { cellWidth: 380 },
+      2: { cellWidth: 60, halign: 'center' }
+    }
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 14;
+
+  // ==========================================
+  // 6. ITEMIZED CONTRACT INVESTMENT BREAKDOWN
+  // ==========================================
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...primaryNavy);
+  doc.text('4. ITEMIZED CONTRACT INVESTMENT BREAKDOWN', margin, currentY);
   currentY += 8;
 
   const costRows = [

@@ -97,6 +97,7 @@ export interface CalculateBOMParams {
   hasStaining: boolean;
   terrain: TerrainType;
   gates: GateConfig;
+  queueLeadTimeDays?: number;
 }
 
 export function calculateBOM({
@@ -111,7 +112,8 @@ export function calculateBOM({
   hasCapAndTrim,
   hasStaining,
   terrain,
-  gates
+  gates,
+  queueLeadTimeDays = 18
 }: CalculateBOMParams): BOMCalculation {
   const totalLinearFeet = segments.reduce((sum, s) => sum + Number(s.lengthFeet || 0), 0);
   const totalTearOutFeet = segments.reduce((sum, s) => sum + (s.hasTearOut ? Number(s.lengthFeet || 0) : 0), tearOutFeet);
@@ -200,6 +202,95 @@ export function calculateBOM({
     (Math.pow(1 + monthlyRate, numMonths) - 1)
   );
 
+  // --- Timeline & Capacity Calculations ---
+  // Average Idaho crew capacity metrics
+  const TEAR_OUT_LF_PER_DAY = 150;
+  const POST_SETTING_LF_PER_DAY = 80;
+  const FRAMING_PICKETING_LF_PER_DAY = 60;
+  const STAINING_LF_PER_DAY = 200;
+  const GATES_PER_DAY = 2;
+  const leadTime = queueLeadTimeDays; // Dynamic lead time from Firestore or fallback
+
+  const phases: { name: string; durationDays: number; description: string }[] = [];
+  
+  // Phase 1: Mobilization & Tear-out
+  if (totalTearOutFeet > 0) {
+    const demoDays = Math.ceil(totalTearOutFeet / TEAR_OUT_LF_PER_DAY);
+    phases.push({
+      name: 'Site Prep & Demolition',
+      durationDays: demoDays,
+      description: `Removal and disposal of ${totalTearOutFeet} LF of existing fencing.`
+    });
+  } else {
+    phases.push({
+      name: 'Site Prep & Layout',
+      durationDays: 1,
+      description: 'Marking property lines and utility locating.'
+    });
+  }
+
+  // Phase 2: Post Installation
+  const postDays = Math.ceil(totalLinearFeet / POST_SETTING_LF_PER_DAY);
+  phases.push({
+    name: 'Post Setting',
+    durationDays: postDays,
+    description: `Setting ${totalPostCount} ${postType.replace('_', ' ')} posts in 36" concrete footings.`
+  });
+
+  // Phase 3: Concrete Cure (Buffer)
+  phases.push({
+    name: 'Foundation Curing',
+    durationDays: 1,
+    description: 'Allowing concrete footings to reach structural integrity.'
+  });
+
+  // Phase 4: Framing & Pickets
+  const buildDays = Math.ceil(totalLinearFeet / FRAMING_PICKETING_LF_PER_DAY);
+  phases.push({
+    name: 'Framing & Panel Assembly',
+    durationDays: buildDays,
+    description: `Installing ${railCountNumber} rails and ${picketCount} pickets.`
+  });
+
+  // Phase 5: Gates & Automation
+  const totalGates = gates.singleGatesCount + gates.doubleGatesCount;
+  if (totalGates > 0) {
+    const gateDays = Math.ceil(totalGates / GATES_PER_DAY);
+    phases.push({
+      name: 'Gate Systems & Automation',
+      durationDays: gateDays,
+      description: `Hanging ${totalGates} gates and configuring ${gates.automatedSolarOperator ? 'solar automation' : 'hardware'}.`
+    });
+  }
+
+  // Phase 6: Staining
+  if (hasStaining) {
+    const stainDays = Math.ceil(totalLinearFeet / STAINING_LF_PER_DAY);
+    phases.push({
+      name: 'Professional Staining',
+      durationDays: stainDays,
+      description: 'Applying commercial grade sealant/stain to entire perimeter.'
+    });
+  }
+
+  const totalWorkDays = phases.reduce((sum, p) => sum + p.durationDays, 0);
+  
+  // Date calculations
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() + leadTime);
+  
+  // Skip weekends for work completion date calculation (simplified)
+  const completionDate = new Date(startDate);
+  let daysToAdd = totalWorkDays;
+  while (daysToAdd > 0) {
+    completionDate.setDate(completionDate.getDate() + 1);
+    const dayOfWeek = completionDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 0 = Sunday, 6 = Saturday
+      daysToAdd--;
+    }
+  }
+
   return {
     totalLinearFeet,
     totalPostCount,
@@ -220,6 +311,12 @@ export function calculateBOM({
     subtotal,
     tax,
     totalCost,
-    monthlyFinancingPayment
+    monthlyFinancingPayment,
+    timeline: {
+      estimatedStartDate: startDate.toISOString(),
+      estimatedCompletionDate: completionDate.toISOString(),
+      totalWorkDays,
+      phases
+    }
   };
 }

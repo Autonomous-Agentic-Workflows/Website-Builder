@@ -156,6 +156,17 @@ export interface FenceEstimateDetails {
   notes?: string;
 }
 
+export interface ProjectedTimeline {
+  estimatedStartDate: string;
+  estimatedCompletionDate: string;
+  totalWorkDays: number;
+  phases: {
+    name: string;
+    durationDays: number;
+    description: string;
+  }[];
+}
+
 export interface BOMCalculation {
   totalLinearFeet: number;
   totalPostCount: number;
@@ -177,6 +188,7 @@ export interface BOMCalculation {
   tax: number;
   totalCost: number;
   monthlyFinancingPayment: number;
+  timeline: ProjectedTimeline;
 }
 
 // Client Review & Homeowner Satisfaction Types (Firestore Collection)

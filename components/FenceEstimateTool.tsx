@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Calculator, 
@@ -24,14 +24,19 @@ import {
   Calendar, 
   DollarSign, 
   Compass, 
-  HelpCircle,
-  Clock,
-  Send,
-  Sliders,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  Loader2
+  HelpCircle, 
+  Clock, 
+  Send, 
+  Sliders, 
+  ChevronDown, 
+  ChevronUp, 
+  AlertCircle, 
+  Loader2, 
+  BookOpen, 
+  ExternalLink,
+  FileSpreadsheet,
+  UserCheck,
+  Users
 } from 'lucide-react';
 import { 
   FenceMaterialType, 
@@ -42,8 +47,13 @@ import {
   FenceEstimateDetails, 
   BOMCalculation 
 } from '../types';
-import { saveQuoteToFirestore } from '../services/firebase';
+import { saveQuoteToFirestore, fetchJobSchedules } from '../services/firebase';
 import { generateFenceEstimatePdf } from '../services/pdfExportService';
+import { 
+  exportFenceDetailsToGoogleDoc,
+  logQuoteToCentralSheets,
+  createGoogleContact
+} from '../services/googleWorkspace';
 import { useToast } from './ToastContext';
 import { calculateBOM, MATERIAL_SPECS } from '../services/estimateCalculator';
 
@@ -95,8 +105,8 @@ const PRESET_YARDS: { name: string; desc: string; segments: YardSegment[]; gates
 export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSubmitted }) => {
   const { showQuoteSuccessToast } = useToast();
 
-  // Active Tab View: 'builder' | 'blueprint' | 'bom' | 'finalize'
-  const [activeTab, setActiveTab] = useState<'builder' | 'blueprint' | 'bom' | 'finalize'>('builder');
+  // Active Tab View: 'builder' | 'blueprint' | 'bom' | 'timeline' | 'finalize'
+  const [activeTab, setActiveTab] = useState<'builder' | 'blueprint' | 'bom' | 'timeline' | 'finalize'>('builder');
 
   // Customer Information
   const [customerName, setCustomerName] = useState('');
@@ -106,6 +116,38 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
   const [city, setCity] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Queue Capacity State
+  const [backlogDays, setBacklogDays] = useState<number>(18);
+
+  // Fetch real-time queue capacity from Firestore
+  useEffect(() => {
+    const getQueueCapacity = async () => {
+      try {
+        const schedules = await fetchJobSchedules();
+        if (schedules && schedules.length > 0) {
+          // Find the latest scheduled job date to determine when new jobs can start
+          const dates = schedules
+            .map(s => new Date(s.date).getTime())
+            .filter(t => !isNaN(t));
+          
+          if (dates.length > 0) {
+            const latestJobTime = Math.max(...dates);
+            const now = Date.now();
+            const diffDays = Math.ceil((latestJobTime - now) / (1000 * 60 * 60 * 24));
+            
+            // Set lead time based on latest job + 3-day buffer for prep/staging
+            // Clamp between 5 days (minimum) and 45 days (max capacity notice)
+            const dynamicLead = Math.min(45, Math.max(5, diffDays + 3));
+            setBacklogDays(dynamicLead);
+          }
+        }
+      } catch (err) {
+        console.warn('Using default lead time fallback:', err);
+      }
+    };
+    getQueueCapacity();
+  }, []);
 
   // Configuration State
   const [material, setMaterial] = useState<FenceMaterialType>('cedar_privacy');
@@ -143,6 +185,50 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isExportingDoc, setIsExportingDoc] = useState(false);
+  const [createdDocUrl, setCreatedDocUrl] = useState<string | null>(null);
+  const [centralSheetUrl, setCentralSheetUrl] = useState<string | null>(null);
+  const [contactSaved, setContactSaved] = useState<boolean>(false);
+
+  const handleExportGoogleDoc = async () => {
+    setIsExportingDoc(true);
+    try {
+      const docResult = await exportFenceDetailsToGoogleDoc({
+        customerName: customerName || 'Valued Idaho Homeowner',
+        email: customerEmail || 'admin@208fenceandgate.com',
+        phone: customerPhone || '(208) 358-9077',
+        address: projectAddress || 'Treasure Valley Property',
+        city: city || 'Boise',
+        zipCode: zipCode || '83702',
+        fenceType: MATERIAL_SPECS[material].name,
+        linearFeet: calculation.totalLinearFeet,
+        heightFeet,
+        postType: postType.replace('_', ' ').toUpperCase(),
+        materialsCost: calculation.materialsCost,
+        laborCost: calculation.laborCost,
+        tearOutCost: calculation.tearOutCost,
+        gatesCost: calculation.gatesCost,
+        addonsCost: calculation.addonsCost,
+        tax: calculation.tax,
+        totalCost: calculation.totalCost,
+        monthlyFinancingPayment: calculation.monthlyFinancingPayment,
+        bom: calculation,
+        notes: notes || 'Generated from 208 Fence Estimate 2D CAD Tool.'
+      });
+
+      setCreatedDocUrl(docResult.documentUrl);
+      showQuoteSuccessToast(
+        submittedQuoteId || '208-EST-DOC',
+        `Google Doc Proposal Generated & Saved in Drive!`,
+        calculation.totalCost
+      );
+    } catch (err: any) {
+      console.error('Google Docs export failed:', err);
+      alert(`Google Docs Export Notice: ${err.message || 'Please connect Google Workspace to export directly to Docs.'}`);
+    } finally {
+      setIsExportingDoc(false);
+    }
+  };
 
   // Helper to apply preset
   const applyPreset = (preset: typeof PRESET_YARDS[0]) => {
@@ -190,9 +276,10 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
       hasCapAndTrim,
       hasStaining,
       terrain,
-      gates
+      gates,
+      queueLeadTimeDays: backlogDays
     });
-  }, [segments, tearOutFeet, postSpacingFeet, railCount, heightFeet, postType, material, hasRotBoard, hasCapAndTrim, hasStaining, terrain, gates]);
+  }, [segments, tearOutFeet, postSpacingFeet, railCount, heightFeet, postType, material, hasRotBoard, hasCapAndTrim, hasStaining, terrain, gates, backlogDays]);
 
   // Submit to Firestore & Google Workspace CRM
   const handleSaveAndSubmit = async () => {
@@ -233,6 +320,55 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
       setSubmittedQuoteId(generatedId);
       if (onQuoteSubmitted) {
         onQuoteSubmitted(generatedId);
+      }
+
+      // 1. Centralized Google Sheets logging
+      try {
+        const sheetLog = await logQuoteToCentralSheets({
+          quoteId: generatedId,
+          customerName: customerName || 'Idaho Resident',
+          email: customerEmail || '',
+          phone: customerPhone || '',
+          address: projectAddress || 'Treasure Valley Property',
+          city: city || 'Boise',
+          zipCode: zipCode || '83702',
+          fenceType: MATERIAL_SPECS[material]?.title || material,
+          linearFeet: calculation.totalLinearFeet,
+          heightFeet,
+          postType: postType.replace('_', ' ').toUpperCase(),
+          materialsCost: calculation.materialsCost,
+          laborCost: calculation.laborCost,
+          gatesCost: calculation.gatesCost,
+          tax: calculation.tax,
+          totalCost: calculation.totalCost,
+          monthlyFinancingPayment: calculation.monthlyFinancingPayment,
+          status: 'PENDING_SURVEY',
+          notes: notes || 'Logged from 208 CAD Estimator'
+        });
+        setCentralSheetUrl(sheetLog.spreadsheetUrl);
+      } catch (sheetErr) {
+        console.warn('Central Google Sheets background logging notice:', sheetErr);
+      }
+
+      // 2. Google Contacts lead creation
+      if (customerName || customerEmail || customerPhone) {
+        try {
+          await createGoogleContact({
+            customerName: customerName || 'Idaho Resident',
+            email: customerEmail || '',
+            phone: customerPhone || '',
+            address: projectAddress || 'Treasure Valley',
+            city: city || 'Boise',
+            zipCode: zipCode || '83702',
+            fenceType: MATERIAL_SPECS[material]?.title || material,
+            linearFeet: calculation.totalLinearFeet,
+            totalCost: calculation.totalCost,
+            quoteId: generatedId
+          });
+          setContactSaved(true);
+        } catch (contactErr) {
+          console.warn('Google Contacts automatic lead creation notice:', contactErr);
+        }
       }
 
       // Trigger Firebase Trigger Email Confirmation Toast
@@ -358,7 +494,8 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
               { id: 'builder', label: '1. Specs & Materials', icon: Sliders },
               { id: 'blueprint', label: '2. Yard Layout & 2D CAD', icon: Ruler },
               { id: 'bom', label: '3. Bill of Materials (BOM)', icon: Layers },
-              { id: 'finalize', label: '4. Summary & Save Bid', icon: FileText },
+              { id: 'timeline', label: '4. Project Schedule', icon: Calendar },
+              { id: 'finalize', label: '5. Summary & Save Bid', icon: FileText },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1304,10 +1441,10 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
                   <span>Download BOM (PDF)</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab('finalize')}
+                  onClick={() => setActiveTab('timeline')}
                   className="px-6 py-2.5 rounded-xl bg-[#1e40af] hover:bg-[#2563eb] text-white text-xs font-mono font-bold uppercase tracking-wider shadow-md cursor-pointer"
                 >
-                  Next: Finalize & Request On-Site Survey →
+                  Next: Project Schedule & Timeline →
                 </button>
               </div>
             </div>
@@ -1315,7 +1452,152 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
         </motion.div>
       )}
 
-      {/* TAB CONTENT: 4. SUMMARY & SAVE BID */}
+      {/* TAB CONTENT: 4. PROJECT SCHEDULE & TIMELINE */}
+      {activeTab === 'timeline' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          <div className="p-6 md:p-8 rounded-3xl bg-[#071322]/90 border border-slate-800">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-slate-800">
+              <div>
+                <h3 className="text-xl font-heading font-bold text-white uppercase tracking-wider flex items-center gap-3">
+                  <Calendar className="w-6 h-6 text-[#38bdf8]" />
+                  <span>Project Schedule Visualization</span>
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-1">
+                  Estimated build-out based on <span className="text-[#38bdf8]">{calculation.totalLinearFeet} LF</span> of {MATERIAL_SPECS[material].name} and current crew capacity.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 p-3 rounded-2xl bg-black/40 border border-slate-800">
+                <div className="text-center px-4 border-r border-slate-800">
+                  <div className="text-[10px] font-mono text-slate-500 uppercase">Estimated Start</div>
+                  <div className="text-sm font-bold text-white">
+                    {new Date(calculation.timeline.estimatedStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+                <div className="text-center px-4">
+                  <div className="text-[10px] font-mono text-slate-500 uppercase">Estimated Completion</div>
+                  <div className="text-sm font-bold text-[#38bdf8]">
+                    {new Date(calculation.timeline.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline Gantt-ish View */}
+            <div className="space-y-6">
+              <div className="relative">
+                {/* Vertical Line */}
+                <div className="absolute left-[15px] top-4 bottom-4 w-px bg-slate-800" />
+
+                <div className="space-y-8">
+                  {calculation.timeline.phases.map((phase, idx) => {
+                    // Simple animation delays
+                    const delay = idx * 0.1;
+                    
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay }}
+                        className="relative pl-10"
+                      >
+                        {/* Status Dot */}
+                        <div className="absolute left-0 top-1.5 w-8 h-8 rounded-full bg-[#071322] border-2 border-slate-800 flex items-center justify-center z-10">
+                          <div className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-[#38bdf8] animate-pulse' : 'bg-slate-600'}`} />
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-4 justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-1">
+                              <h4 className="text-sm font-bold text-white uppercase tracking-wide">
+                                {phase.name}
+                              </h4>
+                              <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">
+                                {phase.durationDays} {phase.durationDays === 1 ? 'Day' : 'Days'}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-mono leading-relaxed max-w-2xl">
+                              {phase.description}
+                            </p>
+                          </div>
+
+                          {/* Progress Bar Mockup */}
+                          <div className="w-full md:w-48 pt-2">
+                            <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: '100%' }}
+                                transition={{ duration: 1, delay: delay + 0.5 }}
+                                className="h-full bg-gradient-to-r from-blue-600 to-[#38bdf8]"
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1 text-[9px] font-mono text-slate-500 uppercase tracking-tighter">
+                              <span>Queue</span>
+                              <span>Complete</span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Total Summary Bar */}
+              <div className="mt-12 p-5 rounded-2xl bg-gradient-to-r from-[#1e40af]/10 to-[#38bdf8]/10 border border-[#38bdf8]/20 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-[#38bdf8]/10 border border-[#38bdf8]/30 flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-[#38bdf8]" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-mono text-slate-400 uppercase">Estimated On-Site Work Time</div>
+                    <div className="text-xl font-bold text-white">
+                      {calculation.timeline.totalWorkDays} Field Days <span className="text-slate-500 font-normal text-sm">/ {calculation.totalLinearFeet} LF Scope</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className="text-[10px] font-mono text-slate-500 uppercase italic">
+                    * Timeline subject to Idaho weather & 811 utility clearance.
+                  </div>
+                  <div className="flex gap-4 mt-2">
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300">
+                      <div className="w-2 h-2 rounded-full bg-[#38bdf8]" /> PostMaster In-Stock
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-slate-300">
+                      <div className="w-2 h-2 rounded-full bg-[#00ff66]" /> Crew Capacity: High
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-between items-center gap-3 mt-10 pt-4 border-t border-slate-800">
+              <button
+                onClick={() => setActiveTab('bom')}
+                className="text-xs font-mono text-slate-400 hover:text-white cursor-pointer"
+              >
+                ← Back to BOM Quantities
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setActiveTab('finalize')}
+                  className="px-8 py-3 rounded-xl bg-[#1e40af] hover:bg-[#2563eb] text-white text-xs font-mono font-bold uppercase tracking-wider shadow-xl transition-all cursor-pointer"
+                >
+                  Next: Finalize & Request Survey →
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* TAB CONTENT: 5. SUMMARY & SAVE BID */}
       {activeTab === 'finalize' && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -1530,21 +1812,22 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
                   )}
                 </button>
 
-                {/* Print & PDF & Share utilities */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Print & PDF & Google Docs & Share utilities */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <button
-                    onClick={handlePrint}
-                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-mono flex items-center justify-center gap-2 border border-slate-700 cursor-pointer shadow-sm transition-all"
-                    title="Print clean contractor proposal"
+                    onClick={handleExportGoogleDoc}
+                    disabled={isExportingDoc}
+                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] hover:from-[#2563eb] hover:to-[#0ea5e9] text-white text-xs font-mono font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                    title="Generate official Google Doc in your Google Drive"
                   >
-                    <Printer className="w-3.5 h-3.5 text-[#38bdf8]" />
-                    <span>Print Estimate</span>
+                    {isExportingDoc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+                    <span>Export Google Doc</span>
                   </button>
 
                   <button
                     onClick={handleDownloadPdf}
                     disabled={isGeneratingPdf}
-                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-[#38bdf8] text-xs font-mono flex items-center justify-center gap-2 border border-slate-700 cursor-pointer shadow-sm transition-all disabled:opacity-50"
+                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-[#38bdf8] text-xs font-mono flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer shadow-sm transition-all disabled:opacity-50"
                     title="Download official PDF proposal"
                   >
                     {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
@@ -1552,22 +1835,87 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
                   </button>
 
                   <button
+                    onClick={handlePrint}
+                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-mono flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer shadow-sm transition-all"
+                    title="Print clean contractor proposal"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-[#38bdf8]" />
+                    <span>Print</span>
+                  </button>
+
+                  <button
                     onClick={handleCopyLink}
-                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-[#00ff66] text-xs font-mono flex items-center justify-center gap-2 border border-slate-700 cursor-pointer shadow-sm transition-all"
+                    className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-[#00ff66] text-xs font-mono flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer shadow-sm transition-all"
                   >
                     <Share2 className="w-3.5 h-3.5" />
-                    <span>{copiedLink ? 'Link Copied!' : 'Share Estimate'}</span>
+                    <span>{copiedLink ? 'Copied!' : 'Share'}</span>
                   </button>
                 </div>
 
+                {createdDocUrl && (
+                  <div className="p-3.5 rounded-2xl bg-[#00ff66]/10 border border-[#00ff66]/40 flex items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-2 text-slate-200">
+                      <Check className="w-4 h-4 text-[#00ff66] shrink-0" />
+                      <span>Google Doc saved to your Drive:</span>
+                    </div>
+                    <a
+                      href={createdDocUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-[#00ff66] text-black font-bold text-[11px] uppercase tracking-wider flex items-center gap-1 shrink-0 hover:bg-emerald-400 transition-colors shadow-sm"
+                    >
+                      <span>Open in Google Docs ↗</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+
                 {submittedQuoteId && (
-                  <div className="p-3 rounded-xl bg-[#00ff66]/10 border border-[#00ff66]/30 text-center">
-                    <p className="text-xs font-mono text-[#00ff66] font-semibold">
-                      Your estimate has been logged with contractor dispatch!
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                      Direct inquiries: (208) 555-0199 • admin@208fenceandgate.com
-                    </p>
+                  <div className="space-y-2">
+                    <div className="p-3.5 rounded-2xl bg-[#00ff66]/10 border border-[#00ff66]/30 text-center">
+                      <p className="text-xs font-mono text-[#00ff66] font-semibold flex items-center justify-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Estimate Confirmed &amp; Logged (Ref: {submittedQuoteId})</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        Direct contractor dispatch: (208) 358-9077 • admin@208fenceandgate.com
+                      </p>
+                    </div>
+
+                    {/* Centralized Google Sheets Log & Google Contacts Indicators */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                      {centralSheetUrl ? (
+                        <a
+                          href={centralSheetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-3 rounded-xl bg-slate-900/90 border border-[#38bdf8]/40 text-[#38bdf8] flex items-center justify-between hover:bg-slate-800 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet className="w-4 h-4 text-[#38bdf8] shrink-0" />
+                            <span className="text-[11px] font-bold">Project Estimates Sheet ↗</span>
+                          </div>
+                          <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                        </a>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 flex items-center gap-2 text-[11px]">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>Synced to Central Spreadsheet</span>
+                        </div>
+                      )}
+
+                      {contactSaved ? (
+                        <div className="p-3 rounded-xl bg-slate-900/90 border border-emerald-500/40 text-[#00ff66] flex items-center gap-2 text-[11px] font-bold">
+                          <UserCheck className="w-4 h-4 text-[#00ff66] shrink-0" />
+                          <span>Lead Saved to Google Contacts</span>
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 flex items-center gap-2 text-[11px]">
+                          <Users className="w-4 h-4 text-[#38bdf8] shrink-0" />
+                          <span>Professional Contacts Sync Active</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1749,10 +2097,40 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
           </table>
         </div>
 
-        {/* 4. Cost Investment Breakdown */}
+        {/* 4. Project Schedule & Timeline */}
         <div className="mb-4 page-break-avoid">
           <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f2942] mb-1.5 border-b border-slate-200 pb-0.5">
-            4. Itemized Contract Investment Breakdown
+            4. Project Schedule &amp; Timeline Estimate
+          </h2>
+          <div className="flex justify-between items-center bg-slate-50 border border-slate-200 rounded p-2 mb-2 text-[10px]">
+            <div><strong>Target Start:</strong> {new Date(calculation.timeline.estimatedStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            <div><strong>Est. Completion:</strong> {new Date(calculation.timeline.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            <div><strong>Total Field Days:</strong> {calculation.timeline.totalWorkDays} Days</div>
+          </div>
+          <table className="print-table">
+            <thead>
+              <tr>
+                <th>Phase Name</th>
+                <th>Scope of Phase Work</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calculation.timeline.phases.map((phase, idx) => (
+                <tr key={idx}>
+                  <td className="font-semibold">{phase.name}</td>
+                  <td>{phase.description}</td>
+                  <td>{phase.durationDays} Day{phase.durationDays === 1 ? '' : 's'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* 5. Cost Investment Breakdown */}
+        <div className="mb-4 page-break-avoid">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#0f2942] mb-1.5 border-b border-slate-200 pb-0.5">
+            5. Itemized Contract Investment Breakdown
           </h2>
           <table className="print-table">
             <tbody>
@@ -1799,10 +2177,10 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
           </table>
         </div>
 
-        {/* 5. Guarantees & Operational Protocol */}
+        {/* 6. Guarantees & Operational Protocol */}
         <div className="p-3 bg-slate-50 border border-slate-200 rounded mb-4 text-[10px] text-slate-600 page-break-avoid">
           <div className="font-bold text-[#0f2942] uppercase tracking-wider mb-1">
-            208 Fence &amp; Gate LLC Operational Standards &amp; Warranties:
+            6. 208 Fence &amp; Gate LLC Operational Standards &amp; Warranties:
           </div>
           <ul className="list-disc list-inside space-y-0.5">
             <li><strong>10-Year Workmanship Warranty:</strong> Full coverage against post lean, structural failure, and gate sag under normal Treasure Valley wind conditions.</li>
@@ -1811,7 +2189,7 @@ export const FenceEstimateTool: React.FC<FenceEstimateToolProps> = ({ onQuoteSub
           </ul>
         </div>
 
-        {/* 6. Signature & Acceptance */}
+        {/* 7. Signature & Acceptance */}
         <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-300 page-break-avoid">
           <div>
             <div className="border-b border-slate-400 h-8 mb-1"></div>

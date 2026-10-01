@@ -25,7 +25,13 @@ import {
   RefreshCw,
   FolderOpen,
   Send,
-  CalendarCheck
+  CalendarCheck,
+  BookOpen,
+  Users,
+  Building2,
+  Phone,
+  Search,
+  UserCheck
 } from 'lucide-react';
 import { 
   requestGoogleAccessToken, 
@@ -33,6 +39,8 @@ import {
   setCachedToken, 
   listDriveFiles, 
   createDriveTextFile,
+  createFenceEstimateDoc,
+  listGoogleDocs,
   createFenceEstimateSheet,
   sendGmailMessage,
   listCalendarEvents,
@@ -42,8 +50,12 @@ import {
   completeGoogleTask,
   createClientIntakeForm,
   loadAndOpenGooglePicker,
+  getGoogleContacts,
+  getGoogleUserProfile,
   DriveFileItem,
-  GoogleTaskItem
+  GoogleTaskItem,
+  GoogleContactItem,
+  WorkspaceUser
 } from '../services/googleWorkspace';
 import { 
   saveQuoteToFirestore, 
@@ -59,19 +71,44 @@ interface GoogleWorkspaceHubProps {
 }
 
 export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
-  const [activeTab, setActiveTab] = useState<'drive' | 'sheets' | 'gmail' | 'calendar' | 'tasks' | 'forms' | 'firebase'>('drive');
+  const [activeTab, setActiveTab] = useState<'drive' | 'docs' | 'sheets' | 'gmail' | 'calendar' | 'tasks' | 'contacts' | 'forms' | 'firebase'>('drive');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // User & Org Profile
+  const [userProfile, setUserProfile] = useState<WorkspaceUser & { org?: string; title?: string }>({});
 
   // Drive state
   const [driveFiles, setDriveFiles] = useState<DriveFileItem[]>([]);
   const [pickedFile, setPickedFile] = useState<any>(null);
 
+  // Google Docs state
+  const [googleDocsList, setGoogleDocsList] = useState<DriveFileItem[]>([]);
+  const [docResult, setDocResult] = useState<{ documentId: string; documentUrl: string } | null>(null);
+  const [docQuoteData, setDocQuoteData] = useState({
+    clientName: 'Idaho Residential Client',
+    clientEmail: 'client@example.com',
+    clientPhone: '(208) 555-0199',
+    projectAddress: '1240 Falcon Ridge Way, Boise, ID',
+    material: 'Western Red Cedar (6ft Vertical Privacy)',
+    footage: 180,
+    postType: 'PostMaster Steel Posts (85+ MPH Wind Rating)',
+    heightFeet: 6,
+    subtotal: 4104,
+    totalCost: 6840,
+    warrantyYears: 5,
+    notes: 'Includes full line survey, 811 utility locates, steel-reinforced corner posts, and haul-away.'
+  });
+
+  // Contacts state
+  const [contacts, setContacts] = useState<GoogleContactItem[]>([]);
+  const [contactsSearch, setContactsSearch] = useState('');
+
   // Sheets state
   const [sheetResult, setSheetResult] = useState<{ spreadsheetId: string; spreadsheetUrl: string } | null>(null);
   const [sheetQuoteData, setSheetQuoteData] = useState({
-    clientName: '',
+    clientName: 'Idaho Residential Client',
     material: 'Western Red Cedar (6ft Privacy)',
     footage: 180,
     unitPrice: 38,
@@ -83,7 +120,7 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
   const [emailForm, setEmailForm] = useState({
     to: '',
     subject: '208 Fence & Gate LLC - Formal Project Bid & Craftsmanship Warranty',
-    bodyText: 'Hello,\n\nThank you for choosing 208 Fence and Gate LLC. Your custom project proposal and 5-Year Craftsmanship Warranty specifications are prepared.\n\nMaterial: Western Red Cedar Privacy\nLinear Footage: 180 LF with PostMaster Steel Posts\nScheduled Lead Time: 3-5 Business Days\n\nPlease reply or call (208) to confirm site survey access.\n\nBest regards,\n208 Fence & Gate LLC Contractor Team'
+    bodyText: 'Hello,\n\nThank you for choosing 208 Fence and Gate LLC. Your custom project proposal and 5-Year Craftsmanship Warranty specifications are prepared.\n\nMaterial: Western Red Cedar Privacy\nLinear Footage: 180 LF with PostMaster Steel Posts\nScheduled Lead Time: 3-5 Business Days\n\nPlease reply or call (208) 358-9077 to confirm site survey access.\n\nBest regards,\n208 Fence & Gate LLC Contractor Team'
   });
 
   // Calendar state
@@ -131,7 +168,7 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
     try {
       await requestGoogleAccessToken();
       setIsConnected(true);
-      setStatusMessage({ type: 'success', text: 'Connected to Google Workspace successfully!' });
+      setStatusMessage({ type: 'success', text: 'Connected to Google Workspace & Organization successfully!' });
       await loadInitialData();
     } catch (error: any) {
       setStatusMessage({ type: 'error', text: error.message || 'OAuth authorization cancelled or failed.' });
@@ -142,18 +179,75 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
 
   const loadInitialData = async () => {
     try {
-      const [files, events, taskList] = await Promise.allSettled([
+      const [files, docs, events, taskList, contactList, profile] = await Promise.allSettled([
         listDriveFiles(),
+        listGoogleDocs(),
         listCalendarEvents(),
-        listGoogleTasks()
+        listGoogleTasks(),
+        getGoogleContacts(),
+        getGoogleUserProfile()
       ]);
 
       if (files.status === 'fulfilled') setDriveFiles(files.value);
+      if (docs.status === 'fulfilled') setGoogleDocsList(docs.value);
       if (events.status === 'fulfilled') setCalendarEvents(events.value);
       if (taskList.status === 'fulfilled') setTasks(taskList.value);
+      if (contactList.status === 'fulfilled') setContacts(contactList.value);
+      if (profile.status === 'fulfilled') setUserProfile(profile.value);
     } catch (e) {
       console.warn('Error loading workspace data:', e);
     }
+  };
+
+  // Google Docs action
+  const handleGenerateGoogleDoc = async () => {
+    setIsLoading(true);
+    try {
+      const result = await createFenceEstimateDoc({
+        title: `208 Proposal - ${docQuoteData.clientName}`,
+        clientName: docQuoteData.clientName,
+        clientEmail: docQuoteData.clientEmail,
+        clientPhone: docQuoteData.clientPhone,
+        projectAddress: docQuoteData.projectAddress,
+        material: docQuoteData.material,
+        linearFootage: Number(docQuoteData.footage),
+        postType: docQuoteData.postType,
+        heightFeet: Number(docQuoteData.heightFeet),
+        subtotal: Number(docQuoteData.subtotal),
+        totalCost: Number(docQuoteData.totalCost),
+        warrantyYears: Number(docQuoteData.warrantyYears),
+        notes: docQuoteData.notes
+      });
+      setDocResult(result);
+      setStatusMessage({ type: 'success', text: 'Formal Google Doc Proposal generated and saved to your Drive!' });
+      const updatedDocs = await listGoogleDocs();
+      setGoogleDocsList(updatedDocs);
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Select contact helper
+  const handleSelectContactForQuote = (contact: GoogleContactItem) => {
+    setDocQuoteData(prev => ({
+      ...prev,
+      clientName: contact.name,
+      clientEmail: contact.email || prev.clientEmail,
+      clientPhone: contact.phoneNumber || prev.clientPhone,
+      projectAddress: contact.organization ? `${contact.organization} Property, Boise, ID` : prev.projectAddress
+    }));
+    setSheetQuoteData(prev => ({
+      ...prev,
+      clientName: contact.name
+    }));
+    setEmailForm(prev => ({
+      ...prev,
+      to: contact.email || prev.to
+    }));
+    setStatusMessage({ type: 'success', text: `Loaded contact "${contact.name}" into Google Docs, Sheets, and Gmail!` });
+    setActiveTab('docs');
   };
 
   // Google Drive & Picker actions
@@ -368,10 +462,12 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
         <div className="flex flex-wrap gap-2 p-1.5 bg-slate-900/90 rounded-2xl border border-slate-800 mb-8">
           {[
             { id: 'drive', label: 'Drive & Picker', icon: FolderKanban },
+            { id: 'docs', label: 'Google Docs', icon: BookOpen },
             { id: 'sheets', label: 'Google Sheets', icon: FileSpreadsheet },
             { id: 'gmail', label: 'Gmail Dispatch', icon: Mail },
             { id: 'calendar', label: 'Calendar Jobs', icon: CalendarIcon },
             { id: 'tasks', label: 'Job Checklist', icon: CheckSquare },
+            { id: 'contacts', label: 'Org & Contacts', icon: Users },
             { id: 'forms', label: 'Forms Survey', icon: FileText },
             { id: 'firebase', label: 'Firebase Firestore', icon: Database },
           ].map((tab) => {
@@ -382,11 +478,13 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
                 key={tab.id}
                 id={`workspace-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-mono font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                   isTabActive
                     ? tab.id === 'firebase'
                       ? 'bg-black text-[#00ff66] border border-[#00ff66]/60 shadow-[0_0_10px_rgba(0,255,102,0.3)]'
-                      : 'bg-[#1e40af] text-white border border-[#38bdf8]/50 shadow-md'
+                      : tab.id === 'docs'
+                        ? 'bg-[#1e3a8a] text-[#38bdf8] border border-[#38bdf8]/60 shadow-md'
+                        : 'bg-[#1e40af] text-white border border-[#38bdf8]/50 shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                 }`}
                 data-hover="true"
@@ -476,6 +574,293 @@ export const GoogleWorkspaceHub: React.FC<GoogleWorkspaceHubProps> = () => {
                       )}
                     </div>
                   ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GOOGLE DOCS PROPOSALS */}
+          {activeTab === 'docs' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-[#38bdf8]" />
+                    <span>Google Docs Formal Proposal & Agreement Engine</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    Generate branded Google Docs with Idaho contractor specifications, bill of materials, and e-signature lines.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono px-3 py-1 rounded-full bg-[#38bdf8]/10 text-[#38bdf8] border border-[#38bdf8]/30">
+                    Live Docs API v1
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Form Inputs */}
+                <div className="lg:col-span-6 space-y-4 p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                  <h4 className="text-xs font-mono uppercase text-[#38bdf8] font-bold">Proposal Agreement Fields</h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Client Full Name</label>
+                      <input
+                        type="text"
+                        value={docQuoteData.clientName}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, clientName: e.target.value })}
+                        placeholder="Client Name"
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Client Email</label>
+                      <input
+                        type="email"
+                        value={docQuoteData.clientEmail}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, clientEmail: e.target.value })}
+                        placeholder="client@example.com"
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Client Phone</label>
+                      <input
+                        type="text"
+                        value={docQuoteData.clientPhone}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, clientPhone: e.target.value })}
+                        placeholder="(208) 555-0199"
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Project Site Location</label>
+                      <input
+                        type="text"
+                        value={docQuoteData.projectAddress}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, projectAddress: e.target.value })}
+                        placeholder="Boise, Meridian, Eagle, ID"
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Linear Footage</label>
+                      <input
+                        type="number"
+                        value={docQuoteData.footage}
+                        onChange={e => {
+                          const ft = Number(e.target.value);
+                          setDocQuoteData({ 
+                            ...docQuoteData, 
+                            footage: ft,
+                            totalCost: ft * 38
+                          });
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Post System</label>
+                      <input
+                        type="text"
+                        value={docQuoteData.postType}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, postType: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-slate-400 mb-1">Total Investment ($)</label>
+                      <input
+                        type="number"
+                        value={docQuoteData.totalCost}
+                        onChange={e => setDocQuoteData({ ...docQuoteData, totalCost: Number(e.target.value) })}
+                        className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-mono text-slate-400 mb-1">Scope & Warranty Notes</label>
+                    <textarea
+                      rows={2}
+                      value={docQuoteData.notes}
+                      onChange={e => setDocQuoteData({ ...docQuoteData, notes: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/60 border border-slate-700 text-white text-xs font-mono focus:border-[#38bdf8] outline-none resize-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleGenerateGoogleDoc}
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#1e40af] to-[#0284c7] hover:from-[#2563eb] hover:to-[#0ea5e9] text-white text-xs font-mono font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xl shadow-blue-950/50"
+                  >
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                    <span>Generate & Save Official Google Doc Proposal</span>
+                  </button>
+                </div>
+
+                {/* Doc Preview / Result & Drive Docs List */}
+                <div className="lg:col-span-6 space-y-4 flex flex-col justify-between">
+                  {docResult ? (
+                    <div className="p-6 rounded-2xl bg-[#00ff66]/10 border border-[#00ff66]/40 text-slate-200">
+                      <div className="flex items-center gap-2 text-[#00ff66] font-mono text-xs font-bold mb-2">
+                        <Check className="w-4 h-4" />
+                        <span>Google Doc Created Successfully</span>
+                      </div>
+                      <h4 className="text-base font-bold text-white mb-2">
+                        208 Fence & Gate Proposal - {docQuoteData.clientName}
+                      </h4>
+                      <p className="text-xs text-slate-300 font-mono mb-4">
+                        Saved in Google Drive. Includes 36" frost footing specs, bill of materials, and contractor signature lines.
+                      </p>
+                      <a
+                        href={docResult.documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00ff66] hover:bg-emerald-400 text-black text-xs font-mono font-bold uppercase tracking-wider shadow-lg transition-all hover:scale-[1.02]"
+                      >
+                        <span>Open in Google Docs ↗</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="p-6 rounded-2xl bg-black/40 border border-slate-800 text-slate-400 font-mono text-xs flex flex-col items-center justify-center text-center py-10">
+                      <BookOpen className="w-10 h-10 text-slate-600 mb-3" />
+                      <p className="font-bold text-slate-300">Ready to create formal Google Document proposal.</p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Click "Generate & Save" to create a live Google Doc directly inside your Google Drive.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Recent Google Docs in Drive */}
+                  <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800">
+                    <h5 className="text-[11px] font-mono uppercase text-slate-400 mb-2 font-bold">Recent Google Docs in Drive</h5>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {googleDocsList.length === 0 ? (
+                        <p className="text-xs text-slate-500 font-mono py-2">No documents found. Generated docs will appear here.</p>
+                      ) : (
+                        googleDocsList.map(doc => (
+                          <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-xl bg-black/50 border border-slate-800 text-xs font-mono">
+                            <div className="flex items-center gap-2 truncate max-w-[200px] sm:max-w-xs">
+                              <FileText className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                              <span className="text-slate-200 truncate">{doc.name}</span>
+                            </div>
+                            {doc.webViewLink && (
+                              <a href={doc.webViewLink} target="_blank" rel="noopener noreferrer" className="text-[#38bdf8] hover:underline shrink-0 text-[10px]">
+                                Edit Doc ↗
+                              </a>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: GOOGLE CONTACTS & ENTERPRISE DIRECTORY */}
+          {activeTab === 'contacts' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2">
+                    <Users className="w-5 h-5 text-[#38bdf8]" />
+                    <span>Google Contacts & Enterprise Organization Directory</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    Synchronize client addresses, phone numbers, and organizational affiliations from Google People API.
+                  </p>
+                </div>
+
+                {userProfile.email && (
+                  <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono">
+                    <UserCheck className="w-3.5 h-3.5 text-[#00ff66]" />
+                    <span className="text-slate-300 font-bold">{userProfile.name || userProfile.email}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Search Bar */}
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-black/60 border border-slate-700">
+                <Search className="w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={contactsSearch}
+                  onChange={e => setContactsSearch(e.target.value)}
+                  placeholder="Search contacts by name, email, phone, or organization..."
+                  className="bg-transparent text-white text-xs font-mono outline-none w-full placeholder:text-slate-500"
+                />
+              </div>
+
+              {/* Contacts Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-1">
+                {contacts
+                  .filter(c => 
+                    !contactsSearch || 
+                    c.name.toLowerCase().includes(contactsSearch.toLowerCase()) || 
+                    c.email?.toLowerCase().includes(contactsSearch.toLowerCase()) ||
+                    c.organization?.toLowerCase().includes(contactsSearch.toLowerCase())
+                  )
+                  .map((contact, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 flex flex-col justify-between transition-colors">
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h4 className="text-sm font-bold text-white truncate">{contact.name}</h4>
+                          {contact.organization && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#1e3a8a]/40 text-[#38bdf8] text-[9px] font-mono border border-[#38bdf8]/30">
+                              {contact.organization}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1 text-xs font-mono text-slate-400">
+                          {contact.email && (
+                            <div className="flex items-center gap-1.5 truncate">
+                              <Mail className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-slate-300 truncate">{contact.email}</span>
+                            </div>
+                          )}
+                          {contact.phoneNumber && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span>{contact.phoneNumber}</span>
+                            </div>
+                          )}
+                          {contact.jobTitle && (
+                            <div className="flex items-center gap-1.5">
+                              <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span className="text-slate-400">{contact.jobTitle}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleSelectContactForQuote(contact)}
+                        className="mt-4 w-full py-2 rounded-xl bg-slate-800 hover:bg-[#1e40af] text-slate-200 hover:text-white text-xs font-mono font-bold uppercase tracking-wider border border-slate-700 hover:border-[#38bdf8]/40 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-[#38bdf8]" />
+                        <span>Use for Google Doc Quote →</span>
+                      </button>
+                    </div>
+                  ))}
+
+                {contacts.length === 0 && (
+                  <div className="col-span-full py-12 text-center text-slate-500 font-mono text-xs">
+                    {isConnected ? 'No contacts found or contacts permission loading. Click "Connect Google Workspace" to refresh.' : 'Connect your Google Workspace above to load organizational contacts.'}
+                  </div>
                 )}
               </div>
             </div>
